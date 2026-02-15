@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Parent Dashboard — Smart Home</title>
+
+<style>
+  /* ---------- THEME VARIABLES (change with JS) ---------- */
+  :root{
+    --bg1:#08121a;
+    --bg2:#1f2c34;
+    --panel-bg:rgba(255,255,255,0.03);
+    --text:#ffffff;
+    --accent:#00bfff;
+    --danger:#ff3333;
+    --border:rgba(255,255,255,0.3);
+  }
+
+  /* ---------- GENERAL STYLES ---------- */
+  body{
+    margin:0;
+    font-family:Inter,system-ui,Arial;
+    background:linear-gradient(135deg,var(--bg1),var(--bg2));
+    color:var(--text);
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+  }
+
+  .panel{
+    width:1050px;
+    max-width:100%;
+    background:var(--panel-bg);
+    border-radius:12px;
+    padding:18px;
+    box-shadow:0 8px 24px rgba(0,0,0,0.45);
+  }
+
+  .top{display:flex;justify-content:space-between;align-items:center}
+  h1{margin:0;font-size:22px}
+  .controls{display:flex;gap:10px;align-items:center}
+
+  .btn{
+    padding:8px 12px;
+    border-radius:8px;
+    border:none;
+    background:var(--accent);
+    color:#002;
+    font-weight:700;
+    cursor:pointer;
+  }
+
+  .danger{background:var(--danger) !important;color:#fff !important;}
+
+  .logout{
+    background:transparent;
+    border:1px solid var(--border);
+    color:var(--text);
+    padding:8px 10px;
+    border-radius:8px;
+    cursor:pointer;
+  }
+
+  select{
+    padding:7px 10px;
+    border-radius:8px;
+    border:none;
+    font-weight:600;
+    cursor:pointer;
+  }
+
+  .table{margin-top:18px;width:100%;border-collapse:collapse}
+  .table th,.table td{
+    padding:10px;
+    border-bottom:1px solid rgba(255,255,255,0.15);
+    text-align:left;
+  }
+
+  th:first-child, td:first-child{width:45px;text-align:center;}
+
+  .pill{
+    padding:6px 10px;
+    border-radius:999px;
+    font-weight:700;
+    display:inline-block;
+  }
+
+  .pending{background:#f0b400;color:#2b1600}
+  .approved{background:#00d27a;color:#022108}
+  .rejected{background:#ff6b6b;color:#3d0000}
+  .revoked{background:#6b6bff;color:#000}
+  .expired{background:#9aa0a6;color:#042}
+</style>
+</head>
+
+<body>
+  <div class="panel">
+
+    <div class="top">
+      <div>
+        <h1>Parent Dashboard</h1>
+        <div>Welcome, <strong id="parentName"></strong></div>
+      </div>
+
+      <div class="controls">
+
+        <!-- FILTER DROPDOWN -->
+        <select id="filterStatus" onchange="updateUI()">
+          <option value="All">All</option>
+          <option value="Pending">Pending</option>
+          <option value="Approved">Approved</option>
+          <option value="Rejected">Rejected</option>
+          <option value="Revoked">Revoked</option>
+          <option value="Expired">Expired</option>
+        </select>
+
+        <!-- 🎨 THEME PICKER -->
+        <select id="themePicker" onchange="applyTheme(this.value)">
+          <option value="dark">Dark Blue</option>
+          <option value="light">Light</option>
+          <option value="green">Green</option>
+          <option value="purple">Purple</option>
+          <option value="contrast">High Contrast</option>
+        </select>
+
+        <button class="btn danger" id="btnDeleteSelected">Delete Selected</button>
+        <button class="logout" id="btnLogout">Logout</button>
+      </div>
+    </div>
+
+    <table class="table">
+      <thead>
+        <tr>
+          <th><input type="checkbox" id="selectAll" onclick="toggleSelectAll()"></th>
+          <th>Child</th>
+          <th>Device</th>
+          <th>Reason</th>
+          <th>Duration</th>
+          <th>Requested</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="reqBody"></tbody>
+    </table>
+
+  </div>
+
+<script>
+/* ---------- PARENT ONLY ---------- */
+if (sessionStorage.getItem("role") !== "parent") {
+  alert("Access denied — parent only.");
+  location.href = "login.html";
+}
+document.getElementById("parentName").textContent =
+  sessionStorage.getItem("username") || "Parent";
+
+/* ---------- READ/WRITE STORAGE ---------- */
+function readRequests(){ return JSON.parse(localStorage.getItem("requests") || "[]"); }
+function writeRequests(a){ localStorage.setItem("requests", JSON.stringify(a)); updateUI(); }
+
+/* ---------- THEME SYSTEM ---------- */
+function applyTheme(theme){
+  localStorage.setItem("theme", theme);
+
+  if(theme === "dark"){
+    document.documentElement.style.setProperty("--bg1", "#08121a");
+    document.documentElement.style.setProperty("--bg2", "#1f2c34");
+    document.documentElement.style.setProperty("--panel-bg", "rgba(255,255,255,0.03)");
+    document.documentElement.style.setProperty("--text", "#ffffff");
+    document.documentElement.style.setProperty("--accent", "#00bfff");
+    document.documentElement.style.setProperty("--border", "rgba(255,255,255,0.3)");
+  }
+  else if(theme === "light"){
+    document.documentElement.style.setProperty("--bg1", "#e9eef2");
+    document.documentElement.style.setProperty("--bg2", "#ffffff");
+    document.documentElement.style.setProperty("--panel-bg", "#ffffff");
+    document.documentElement.style.setProperty("--text", "#000000");
+    document.documentElement.style.setProperty("--accent", "#0077cc");
+    document.documentElement.style.setProperty("--border", "#000000");
+  }
+  else if(theme === "green"){
+    document.documentElement.style.setProperty("--bg1", "#002611");
+    document.documentElement.style.setProperty("--bg2", "#004d26");
+    document.documentElement.style.setProperty("--panel-bg", "rgba(0,100,0,0.2)");
+    document.documentElement.style.setProperty("--text", "#c8ffdd");
+    document.documentElement.style.setProperty("--accent", "#00ff88");
+    document.documentElement.style.setProperty("--border", "#00ff88");
+  }
+  else if(theme === "purple"){
+    document.documentElement.style.setProperty("--bg1", "#1e0033");
+    document.documentElement.style.setProperty("--bg2", "#3d0066");
+    document.documentElement.style.setProperty("--panel-bg", "rgba(255,255,255,0.08)");
+    document.documentElement.style.setProperty("--text", "#f8e6ff");
+    document.documentElement.style.setProperty("--accent", "#c77dff");
+    document.documentElement.style.setProperty("--border", "#c77dff");
+  }
+  else if(theme === "contrast"){
+    document.documentElement.style.setProperty("--bg1", "#000000");
+    document.documentElement.style.setProperty("--bg2", "#000000");
+    document.documentElement.style.setProperty("--panel-bg", "#ffffff");
+    document.documentElement.style.setProperty("--text", "#000000");
+    document.documentElement.style.setProperty("--accent", "#ff0000");
+    document.documentElement.style.setProperty("--border", "#000000");
+  }
+}
+applyTheme(localStorage.getItem("theme") || "dark");
+document.getElementById("themePicker").value = localStorage.getItem("theme") || "dark";
+
+/* ---------- UI RENDER ---------- */
+function updateUI(){
+  const tbody = document.getElementById("reqBody");
+  const filter = document.getElementById("filterStatus").value;
+
+  let arr = readRequests().sort((a,b)=> (b.createdAt||0)-(a.createdAt||0));
+  if(filter !== "All") arr = arr.filter(r => r.status === filter);
+
+  tbody.innerHTML = "";
+
+  if(arr.length === 0){
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#ccc">No matching requests</td></tr>`;
+    return;
+  }
+
+  arr.forEach(r=>{
+    const tr = document.createElement("tr");
+
+    tr.innerHTML = `
+      <td><input type="checkbox" class="rowSelect" data-id="${r.id}" onclick="checkIfAllSelected()"></td>
+      <td>${escape(r.child)}</td>
+      <td>${escape(r.device)}</td>
+      <td>${escape(r.reason ?? "-")}</td>
+      <td>${r.durationMinutes ?? 0} min</td>
+      <td>${timeAgo(r.createdAt)}</td>
+      <td><span class="pill ${(r.status||'').toLowerCase()}">${r.status}</span></td>
+
+      <td>
+        <button class="btn" onclick="approve(${r.id})" ${r.status!=='Pending'?'disabled':''}>Approve</button>
+        <button class="btn" style="background:#ff6b6b;color:#fff;margin-left:8px"
+                onclick="deny(${r.id})" ${r.status!=='Pending'?'disabled':''}>Deny</button>
+        <button class="btn" style="background:#6b6bff;color:#fff;margin-left:8px"
+                onclick="revoke(${r.id})" ${r.status==='Approved'?'':'disabled'}>Revoke</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  checkIfAllSelected();
+}
+
+/* ---------- CHECKBOX HELPERS ---------- */
+function toggleSelectAll(){
+  const s = document.getElementById("selectAll").checked;
+  document.querySelectorAll(".rowSelect").forEach(cb => cb.checked = s);
+}
+function checkIfAllSelected(){
+  const boxes = document.querySelectorAll(".rowSelect");
+  document.getElementById("selectAll").checked =
+    boxes.length>0 && [...boxes].every(cb => cb.checked);
+}
+
+/* ---------- DELETE SELECTED ---------- */
+function deleteSelected(){
+  const ids = [...document.querySelectorAll(".rowSelect:checked")].map(cb=>Number(cb.dataset.id));
+  if(ids.length===0){ alert("No items selected."); return; }
+
+  const arr = readRequests();
+  if(arr.some(r => ids.includes(r.id) && r.status==="Pending")){
+    alert("❌ Cannot delete PENDING requests.");
+    return;
+  }
+
+  if(!confirm("Delete all selected completed requests?")) return;
+
+  const filtered = arr.filter(r => !ids.includes(r.id));
+  writeRequests(filtered);
+  alert("Selected requests deleted.");
+}
+
+/* ---------- APPROVE / DENY / REVOKE ---------- */
+function approve(id){
+  const arr = readRequests();
+  writeRequests(arr.map(r =>
+    r.id===id ? {...r, status:"Approved", approvedUntil:Date.now()+((r.durationMinutes??0)*60000)} : r
+  ));
+}
+function deny(id){
+  if(!confirm("Deny this request?")) return;
+  writeRequests(readRequests().map(r => r.id===id ? {...r, status:"Rejected"} : r));
+}
+function revoke(id){
+  if(!confirm("Revoke this approved access?")) return;
+  writeRequests(readRequests().map(r => r.id===id ? {...r, status:"Revoked"} : r));
+}
+
+/* ---------- HELPERS ---------- */
+function timeAgo(ts){
+  if(!ts) return "-";
+  const s = Math.floor((Date.now()-ts)/1000);
+  if(s<60) return s+"s ago";
+  if(s<3600) return Math.floor(s/60)+"m ago";
+  return Math.floor(s/3600)+"h ago";
+}
+function escape(x){
+  return String(x).replace(/[&<>"']/g,c=>({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+}
+
+/* ---------- AUTO-EXPIRE ---------- */
+setInterval(()=>{
+  const arr = readRequests();
+  const now = Date.now();
+  let changed = false;
+
+  const updated = arr.map(r=>{
+    if(r.status==="Approved" && r.approvedUntil && now >= r.approvedUntil){
+      changed = true;
+      return {...r, status:"Expired"};
+    }
+    return r;
+  });
+
+  if(changed) writeRequests(updated);
+},1000);
+
+/* ---------- BUTTONS ---------- */
+document.getElementById("btnDeleteSelected").onclick = deleteSelected;
+document.getElementById("btnLogout").onclick =
+  ()=>{ sessionStorage.clear(); location.href="login.html"; };
+
+/* ---------- INITIAL LOAD ---------- */
+updateUI();
+</script>
+</body>
+</html>
